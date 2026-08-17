@@ -1,0 +1,41 @@
+name: Generate package-lock
+
+on:
+  push:
+    branches:
+      - fix/npm-lock-and-deps
+  workflow_dispatch:
+
+jobs:
+  generate-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: fix/npm-lock-and-deps
+
+      - name: Use Node.js 16
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16.20.0'
+          cache: 'npm'
+
+      - name: Install and generate lockfile
+        run: |
+          npm ci --prefer-offline --no-audit || npm install
+          npm install --package-lock-only
+
+      - name: Commit package-lock.json if changed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git status --porcelain | grep package-lock.json; then
+            git add package-lock.json
+            git commit -m "chore: generate package-lock.json via workflow"
+            git push origin HEAD:fix/npm-lock-and-deps
+          else
+            echo "No changes to package-lock.json"
+          fi
